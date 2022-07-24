@@ -1,4 +1,4 @@
-#include "hashmap.h"
+#include "intermediate_hashmap.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -9,16 +9,31 @@
 #define FNV_PRIME 1099511628211UL
 
 /**
- * @brief Initializes HasMap
+ * @brief Initializes HashMap
  *
  * @return HashMap* Pointer to HashMap
  */
-HashMap* MapInit(void) {
-    HashMap* hashmap = (HashMap*)malloc(sizeof(HashMap));
-    hashmap->contents = (MapPair**)calloc(MAP_INIT_CAPACITY, sizeof(MapPair*));
-    hashmap->capacity = MAP_INIT_CAPACITY;
-    hashmap->size = 0;
-    return hashmap;
+InterHashMap* MapInit(void) {
+    InterHashMap* interhashmap = (InterHashMap*)malloc(sizeof(InterHashMap));
+    interhashmap->contents =
+        (ArrayList**)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
+    interhashmap->capacity = INTERMAP_INIT_CAPACITY;
+    interhashmap->size = 0;
+    return interhashmap;
+}
+
+/**
+ * @brief Initializes ArrayList
+ *
+ * @return ArrayList*
+ */
+ArrayList* ArrayListInit(void) {
+    ArrayList* arraylist = malloc(sizeof(ArrayList));
+    arraylist->size = 0;
+    // Allocate the array
+    arraylist->pairs = malloc(sizeof(MapPair*) * ARRAYLIST_INITIAL_CAPACITY);
+    arraylist->capacity = ARRAYLIST_INITIAL_CAPACITY;
+    return arraylist;
 }
 
 /**
@@ -29,10 +44,11 @@ HashMap* MapInit(void) {
  * @param value Void pointer to value
  * @param value_size int value of size of HashMap
  */
-void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
-    // resize hashmap if half filled
-    if (hashmap->size > (hashmap->capacity / 2)) {
-        if (resize_map(hashmap) < 0) {
+void MapPut(InterHashMap* interhashmap, char* key, void* value,
+            int value_size) {
+    // resize interhashmap if half filled
+    if (interhashmap->size > (interhashmap->capacity / 2)) {
+        if (resize_map(interhashmap) < 0) {
             exit(0);
         }
     }
@@ -44,24 +60,24 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
     newpair->key = strdup(key);
     newpair->value = (void*)malloc(value_size);
     memcpy(newpair->value, value, value_size);
-    h = Hash(key, hashmap->capacity);
+    h = Hash(key, interhashmap->capacity);
 
-    // if hashmap index is not empty
-    while (hashmap->contents[h] != NULL) {
+    // if interhashmap index is not empty
+    while (interhashmap->contents[h] != NULL) {
         // if keys are equal, update (overrides)
-        if (!strcmp(key, hashmap->contents[h]->key)) {
-            free(hashmap->contents[h]);
-            hashmap->contents[h] = newpair;
+        if (!strcmp(key, interhashmap->contents[h]->key)) {
+            free(interhashmap->contents[h]);
+            interhashmap->contents[h] = newpair;
             return;
         }
         h++;
-        if (h == hashmap->capacity) h = 0;
+        if (h == interhashmap->capacity) h = 0;
     }
 
-    // key not found in hashmap, h is an empty slot
-    // add pair to hashmap
-    hashmap->contents[h] = newpair;
-    hashmap->size += 1;
+    // key not found in interhashmap, h is an empty slot
+    // add pair to interhashmap
+    interhashmap->contents[h] = newpair;
+    interhashmap->size += 1;
 }
 
 /**
