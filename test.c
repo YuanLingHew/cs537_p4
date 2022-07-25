@@ -1,31 +1,55 @@
+#include "test.h"
+
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-void alloc2(int** p) {
-    *p = (int*)malloc(sizeof(int));
-    **p = 10;
+#define INTERMAP_INIT_CAPACITY 11
+#define ARRAYLIST_INIT_CAPACITY 5
+
+InterHashMap* interhashmap;
+
+/**
+ * @brief Initializes HashMap
+ *
+ * @return InterHashMap* Pointer to HashMap
+ */
+InterHashMap* MapInit(void) {
+    InterHashMap* interhashmap = (InterHashMap*)malloc(sizeof(InterHashMap));
+    interhashmap->contents =
+        (ArrayList**)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
+    interhashmap->capacity = INTERMAP_INIT_CAPACITY;
+    interhashmap->size = 0;
+
+    // initializes contents (runs ArrayListInit)
+    for (int i = 0; i < INTERMAP_INIT_CAPACITY; i++) {
+        // initializes empty arraylists
+        ArrayList* new = ArrayListInit();
+        interhashmap->contents[i] = new;
+    }
+    return interhashmap;
 }
 
-void alloc1(int* p) {
-    // printf("%X\n", p);
-    p = (int*)malloc(sizeof(int));
-    // printf("%X\n", p);
-    *p = 10;
+/**
+ * @brief Initializes ArrayList
+ *
+ * @return ArrayList*
+ */
+ArrayList* ArrayListInit(void) {
+    ArrayList* arraylist = malloc(sizeof(ArrayList));
+    arraylist->size = 0;
+    // Allocate the array
+    arraylist->pairs =
+        (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
+    arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
+    return arraylist;
 }
 
 int main() {
-    int p_value = 200;
-    int* p = &p_value;
-    printf("Address of p_value: %X\n", &p_value);
-    printf("Decimal value of p_value: %d\n", p_value);
-
-    printf("pointer p in main() is at: %X\n", &p);
-    printf("pointer p in main() points to: %X\n", p);
-    printf("Decimal value of value of p: %d\n", *p);
-    // alloc1(p);
-    // printf("%d ", *p);  // undefined
-    alloc2(&p);
-    printf("%d ", *p);  // will print 10
-    // free(p);
+    printf("hello worlds\n");
+    interhashmap = MapInit();
+    printf("%ld\n", interhashmap->capacity);
+    free(interhashmap);
     return 0;
 }

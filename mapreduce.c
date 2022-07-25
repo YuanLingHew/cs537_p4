@@ -5,9 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "arraylist.h"
-#include "interhashmap.h"
-
 #define INTERMAP_INIT_CAPACITY 11
 #define ARRAYLIST_INIT_CAPACITY 5
 
@@ -43,7 +40,7 @@ InterHashMap* MapInit(void) {
     interhashmap->size = 0;
 
     // initializes contents (runs ArrayListInit)
-    for (int i = 0; int i < INTERMAP_INIT_CAPACITY; i++) {
+    for (int i = 0; i < INTERMAP_INIT_CAPACITY; i++) {
         // initializes empty arraylists
         ArrayList* new = ArrayListInit();
         interhashmap->contents[i] = new;
@@ -60,6 +57,7 @@ InterHashMap* MapInit(void) {
  * @param value_size int value of size of HashMap
  */
 void MapPut(InterHashMap* interhashmap, char* key, char* value) {
+    /*
     // resize interhashmap if half filled
     if (interhashmap->size > (interhashmap->capacity / 2)) {
         if (resize_map(interhashmap) < 0) {
@@ -78,7 +76,7 @@ void MapPut(InterHashMap* interhashmap, char* key, char* value) {
     // if ArrayList is not empty
     if (interhashmap->contents[h] != NULL) {
         // append
-        arraylist_add(interhashmap->content[h], newpair);
+        arraylist_add(interhashmap->contents[h], newpair);
     }
     // if interhashmap index is not empty
     while (interhashmap->contents[h] != NULL) {
@@ -96,6 +94,7 @@ void MapPut(InterHashMap* interhashmap, char* key, char* value) {
     // add pair to interhashmap
     interhashmap->contents[h] = newpair;
     interhashmap->size += 1;
+    */
 }
 
 /**
@@ -106,6 +105,7 @@ void MapPut(InterHashMap* interhashmap, char* key, char* value) {
  * @return char* to value, NULL if not found
  */
 char* MapGet(HashMap* hashmap, char* key) {
+    /*
     int h = Hash(key, hashmap->capacity);
     while (hashmap->contents[h] != NULL) {
         if (!strcmp(key, hashmap->contents[h]->key)) {
@@ -117,6 +117,7 @@ char* MapGet(HashMap* hashmap, char* key) {
         }
     }
     return NULL;
+    */
 }
 
 /**
@@ -125,7 +126,10 @@ char* MapGet(HashMap* hashmap, char* key) {
  * @param map Pointer to HashMap
  * @return size_t of map size
  */
-size_t MapSize(HashMap* map) { return map->size; }
+size_t MapSize(HashMap* map) {
+    // return map->size;
+    return 0;
+}
 
 /**
  * @brief Resize hashmap (double the size)
@@ -134,6 +138,7 @@ size_t MapSize(HashMap* map) { return map->size; }
  * @return int 0 for success
  */
 int resize_map(HashMap* map) {
+    /*
     MapPair** temp;
     size_t newcapacity = map->capacity * 2;  // double the capacity
 
@@ -166,6 +171,7 @@ int resize_map(HashMap* map) {
     // update contents with the new table, increase hashmap capacity
     map->contents = temp;
     map->capacity = newcapacity;
+    */
     return 0;
 }
 
@@ -178,6 +184,7 @@ int resize_map(HashMap* map) {
  * @return hashed value (index of HashMap)
  */
 size_t Hash(char* key, size_t capacity) {
+    /*
     size_t hash = FNV_OFFSET;
     for (const char* p = key; *p; p++) {
         hash ^= (size_t)(unsigned char)(*p);
@@ -185,6 +192,8 @@ size_t Hash(char* key, size_t capacity) {
         hash ^= (size_t)(*p);
     }
     return (hash % capacity);
+    */
+    return 0;
 }
 
 /**
@@ -197,7 +206,7 @@ ArrayList* ArrayListInit(void) {
     arraylist->size = 0;
     // Allocate the array
     arraylist->pairs =
-        (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INITIAL_CAPACITY);
+        (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
     arraylist->capacity = ARRAYLIST_INITIAL_CAPACITY;
     return arraylist;
 }
@@ -206,6 +215,7 @@ ArrayList* ArrayListInit(void) {
  * Allocate sufficient array capacity for at least `size` elements.
  */
 void arraylist_allocate(ArrayList* l, unsigned int size) {
+    /*
     if (size > l->capacity) {
         unsigned int new_capacity = l->capacity;
         while (new_capacity < size) {
@@ -214,22 +224,26 @@ void arraylist_allocate(ArrayList* l, unsigned int size) {
         l->pairs = realloc(l->pairs, sizeof(MapPair*) * new_capacity);
         l->capacity = new_capacity;
     }
+    */
 }
 
 /**
  * Add item at the end of the list.
  */
 void arraylist_add(ArrayList* l, MapPair* item) {
+    /*
     arraylist_allocate(l, l->size + 1);
     l->pairs[l->size++] = item;
+    */
 }
 
 /**
  * Return item located at index.
  */
 MapPair* arraylist_get(ArrayList* l, unsigned int index) {
-    assert(index < l->size);
-    return l->pairs[index];
+    // assert(index < l->size);
+    // return l->pairs[index];
+    return NULL;
 }
 
 /**
@@ -243,7 +257,9 @@ void arraylist_destroy(ArrayList* l) {
 }
 
 void MR_Emit(char* key, char* value) {
+    /*
     MapPut(interhashmap, key, value);
+    */
 
     return;
 }
@@ -260,12 +276,5 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
     for (i = 1; i < argc; i++) {
         // call map function and eventually MR_Emit()
         (*map)(argv[i]);
-    }
-
-    // note that in the single-threaded version, we don't really have
-    // partitions. We just use a global counter to keep it really simple
-    kvl_counter = 0;
-    while (kvl_counter < kvl.num_elements) {
-        (*reduce)((kvl.elements[kvl_counter])->key, get_func, 0);
     }
 }
