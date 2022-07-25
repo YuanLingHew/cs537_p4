@@ -11,24 +11,24 @@
 #define INTERMAP_INIT_CAPACITY 11
 #define ARRAYLIST_INIT_CAPACITY 5
 
-struct MapPair {
+typedef struct MapPair {
     char* key;
     char* value;
-};
+} MapPair;
 
-struct ArrayList {
+typedef struct ArrayList {
     MapPair** pairs;
     size_t size;
     size_t capacity;
-};
+} ArrayList;
 
-struct InterHashMap {
-    ArrayList* contents[];
+typedef struct InterHashMap {
+    ArrayList** contents;
     size_t capacity;
     size_t size;
-};
+} InterHashMap;
 
-struct InterHashMap interhashmap;
+InterHashMap* interhashmap;
 
 /**
  * @brief Initializes HashMap
@@ -38,12 +38,17 @@ struct InterHashMap interhashmap;
 InterHashMap* MapInit(void) {
     InterHashMap* interhashmap = (InterHashMap*)malloc(sizeof(InterHashMap));
     interhashmap->contents =
-        (ArrayList*)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
+        (ArrayList**)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
     interhashmap->capacity = INTERMAP_INIT_CAPACITY;
     interhashmap->size = 0;
 
-    // initializes contents
-    for (int i = 0; int i < INTERM) return interhashmap;
+    // initializes contents (runs ArrayListInit)
+    for (int i = 0; int i < INTERMAP_INIT_CAPACITY; i++) {
+        // initializes empty arraylists
+        ArrayList* new = ArrayListInit();
+        interhashmap->contents[i] = new;
+    }
+    return interhashmap;
 }
 
 /**
@@ -191,7 +196,8 @@ ArrayList* ArrayListInit(void) {
     ArrayList* arraylist = malloc(sizeof(ArrayList));
     arraylist->size = 0;
     // Allocate the array
-    arraylist->pairs = malloc(sizeof(MapPair*) * ARRAYLIST_INITIAL_CAPACITY);
+    arraylist->pairs =
+        (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INITIAL_CAPACITY);
     arraylist->capacity = ARRAYLIST_INITIAL_CAPACITY;
     return arraylist;
 }
@@ -248,7 +254,7 @@ unsigned long MR_DefaultHashPartition(char* key, int num_partitions) {
 
 void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
             int num_reducers, Partitioner partition) {
-    interhashmap* = MapInit();
+    interhashmap = MapInit();
     int i;
     // iterate through files
     for (i = 1; i < argc; i++) {
