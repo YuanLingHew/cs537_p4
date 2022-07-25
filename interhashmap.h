@@ -1,5 +1,5 @@
-#ifndef __intermediate_hashmap_h__
-#define __intermediate_hashmap_h__
+#ifndef __interhashmap_h__
+#define __interhashmap_h__
 #include "arraylist.h"
 #include "stddef.h"
 
@@ -12,12 +12,6 @@ typedef struct {
 } MapPair;
 
 typedef struct {
-    MapPair** pairs;
-    size_t size;
-    size_t capacity;
-} ArrayList;
-
-typedef struct {
     ArrayList* contents[];
     size_t capacity;
     size_t size;
@@ -25,7 +19,6 @@ typedef struct {
 
 // External Functions
 HashMap* MapInit(void);
-ArrayList* ArrayListInit(void);
 void MapPut(HashMap* map, char* key, void* value, int value_size);
 char* MapGet(HashMap* map, char* key);
 size_t MapSize(HashMap* map);
@@ -34,4 +27,4 @@ size_t MapSize(HashMap* map);
 int resize_map(HashMap* map);
 size_t Hash(char* key, size_t capacity);
 
-#endif  // __intermediate_hashmap_h__
+#endif  // __interhashmap_h__

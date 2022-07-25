@@ -1,9 +1,11 @@
-#include "intermediate_hashmap.h"
+#include "interhashmap.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "arraylist.h"
 
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
@@ -20,20 +22,6 @@ InterHashMap* MapInit(void) {
     interhashmap->capacity = INTERMAP_INIT_CAPACITY;
     interhashmap->size = 0;
     return interhashmap;
-}
-
-/**
- * @brief Initializes ArrayList
- *
- * @return ArrayList*
- */
-ArrayList* ArrayListInit(void) {
-    ArrayList* arraylist = malloc(sizeof(ArrayList));
-    arraylist->size = 0;
-    // Allocate the array
-    arraylist->pairs = malloc(sizeof(MapPair*) * ARRAYLIST_INITIAL_CAPACITY);
-    arraylist->capacity = ARRAYLIST_INITIAL_CAPACITY;
-    return arraylist;
 }
 
 /**
@@ -62,9 +50,14 @@ void MapPut(InterHashMap* interhashmap, char* key, void* value,
     memcpy(newpair->value, value, value_size);
     h = Hash(key, interhashmap->capacity);
 
+    // if ArrayList is not empty
+    if (interhashmap->contents[h] != NULL) {
+        // append
+        arraylist_add(interhashmap->content[h], newpair);
+    }
     // if interhashmap index is not empty
     while (interhashmap->contents[h] != NULL) {
-        // if keys are equal, update (overrides)
+        // if keys are equal, append to ArrayList
         if (!strcmp(key, interhashmap->contents[h]->key)) {
             free(interhashmap->contents[h]);
             interhashmap->contents[h] = newpair;
