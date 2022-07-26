@@ -6,7 +6,7 @@
 #include <string.h>
 
 #define INTERMAP_INIT_CAPACITY 11
-#define ARRAYLIST_INIT_CAPACITY 5
+#define ARRAYLIST_INIT_CAPACITY 1
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
 
@@ -141,10 +141,7 @@ int resize_map(InterHashMap* map) {
  */
 void arraylist_allocate(ArrayList* l, unsigned int size) {
     if (size > l->capacity) {
-        unsigned int new_capacity = l->capacity;
-        while (new_capacity < size) {
-            new_capacity *= 2;
-        }
+        unsigned int new_capacity = l->capacity + 1;
         l->pairs = realloc(l->pairs, sizeof(MapPair*) * new_capacity);
         l->capacity = new_capacity;
     }
@@ -213,6 +210,10 @@ int main() {
     char val[] = "1";
     char key_2[] = "boy";
     char val_2[] = "1";
+    MapPut(interhashmap, &key, &val);
+    MapPut(interhashmap, &key, &val);
+    MapPut(interhashmap, &key, &val);
+    MapPut(interhashmap, &key, &val);
     MapPut(interhashmap, &key, &val);
     MapPut(interhashmap, &key, &val);
     MapPut(interhashmap, &key_2, &val_2);
