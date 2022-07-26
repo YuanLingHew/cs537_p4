@@ -1,5 +1,6 @@
 #ifndef __mapreduce_h__
 #define __mapreduce_h__
+#include "stddef.h"
 
 // Different function pointer types used by MR
 typedef char *(*Getter)(char *key, int partition_number);
