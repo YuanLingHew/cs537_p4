@@ -37,5 +37,7 @@ void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, Reducer reduce,
 // Internal functions:
 InterHashMap *MapInit(void);
 ArrayList *ArrayListInit(void);
+void MapPut(InterHashMap* interhashmap, char* key, char* value);
+size_t Hash(char* key, size_t capacity);
 
 #endif  // __test_h__

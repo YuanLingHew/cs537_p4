@@ -7,6 +7,8 @@
 
 #define INTERMAP_INIT_CAPACITY 11
 #define ARRAYLIST_INIT_CAPACITY 5
+#define FNV_OFFSET 14695981039346656037UL
+#define FNV_PRIME 1099511628211UL
 
 InterHashMap* interhashmap;
 
@@ -22,12 +24,14 @@ InterHashMap* MapInit(void) {
     interhashmap->capacity = INTERMAP_INIT_CAPACITY;
     interhashmap->size = 0;
 
+    /*
     // initializes contents (runs ArrayListInit)
     for (int i = 0; i < INTERMAP_INIT_CAPACITY; i++) {
         // initializes empty arraylists
         ArrayList* new = ArrayListInit();
         interhashmap->contents[i] = new;
     }
+    */
     return interhashmap;
 }
 
@@ -46,10 +50,174 @@ ArrayList* ArrayListInit(void) {
     return arraylist;
 }
 
+/**
+ * @brief Inserts key value pair in hashmap
+ *
+ * @param interhashmap Pointer to interhashmap
+ * @param key Char pointer to key
+ * @param value Void pointer to value
+ * @param value_size int value of size of HashMap
+ */
+void MapPut(InterHashMap* interhashmap, char* key, char* value) {
+    // printf("MAPPUT CALLED\n");
+    // resize interhashmap if half filled
+    if (interhashmap->size > (interhashmap->capacity / 2)) {
+        if (resize_map(interhashmap) < 0) {
+            exit(0);
+        }
+    }
+
+    // initialize new kv pair and hash value
+    MapPair* newpair = (MapPair*)malloc(sizeof(MapPair));
+    int h;
+
+    newpair->key = strdup(key);
+    newpair->value = strdup(value);
+    h = Hash(key, interhashmap->capacity);
+    // printf("%d\n", h);
+
+    // if ArrayList is not empty
+    if (interhashmap->contents[h] != NULL) {
+        printf("HERE1\n");
+        // append
+        arraylist_add(interhashmap->contents[h], newpair);
+    }
+
+    // if ArrayList is empty
+    else {
+        printf("HERE2\n");
+
+        // create new ArrayList*
+        ArrayList* new = ArrayListInit();
+        interhashmap->contents[h] = new;
+        arraylist_add(interhashmap->contents[h], newpair);
+    }
+}
+
+/**
+ * @brief Resize hashmap (double the size)
+ *
+ * @param map Pointer to HashMap
+ * @return int 0 for success
+ */
+int resize_map(InterHashMap* map) {
+    MapPair** temp;
+    size_t newcapacity = map->capacity * 2;  // double the capacity
+
+    // allocate a new hashmap table
+    temp = (ArrayList**)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
+    if (temp == NULL) {
+        printf("Malloc error! %s\n", strerror(errno));
+        return -1;
+    }
+
+    size_t i;
+    int h;
+    MapPair* entry;
+    // rehash all the old entries to fit the new table
+    for (i = 0; i < map->capacity; i++) {
+        if (map->contents[i]->pairs[0] != NULL)
+            entry = map->contents[i]->pairs[0];
+        else
+            continue;
+        h = Hash(entry->key, newcapacity);
+        while (temp[h] != NULL) {
+            h++;
+            if (h == newcapacity) h = 0;
+        }
+        temp[h] = entry;
+    }
+
+    // free the old table
+    free(map->contents);
+    // update contents with the new table, increase hashmap capacity
+    map->contents = temp;
+    map->capacity = newcapacity;
+    return 0;
+}
+
+/**
+ * Allocate sufficient array capacity for at least `size` elements.
+ */
+void arraylist_allocate(ArrayList* l, unsigned int size) {
+    if (size > l->capacity) {
+        unsigned int new_capacity = l->capacity;
+        while (new_capacity < size) {
+            new_capacity *= 2;
+        }
+        l->pairs = realloc(l->pairs, sizeof(MapPair*) * new_capacity);
+        l->capacity = new_capacity;
+    }
+}
+
+/**
+ * Add item at the end of the list.
+ */
+void arraylist_add(ArrayList* l, MapPair* item) {
+    arraylist_allocate(l, l->size + 1);
+    l->pairs[l->size++] = item;
+}
+
+/**
+ * @brief FNV-1a hashing algorithm
+ * https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function#FNV-1a_hash
+ *
+ * @param key char* of key
+ * @param capacity size_t size of HashMap
+ * @return hashed value (index of HashMap)
+ */
+size_t Hash(char* key, size_t capacity) {
+    size_t hash = FNV_OFFSET;
+    for (const char* p = key; *p; p++) {
+        hash ^= (size_t)(unsigned char)(*p);
+        hash *= FNV_PRIME;
+        hash ^= (size_t)(*p);
+    }
+    return (hash % capacity);
+
+    return 0;
+}
+
+void debug_print(InterHashMap* interhashmap) {
+    printf("********************************************\n");
+    printf("InterHashMap:\n");
+    printf("Address:\t\tIndex:\t\tArrayList\n");
+    for (int i = 0; i < interhashmap->capacity; i++) {
+        printf("%X\t\t%d", &(interhashmap->contents[i]), i);
+        if (interhashmap->contents[i] == 0) {
+            printf("\t\t0\n");
+        } else {
+            // print ArrayList
+            printf("\t\t[");
+            for (int j = 0; j < interhashmap->contents[i]->capacity; j++) {
+                // if NULL
+                if (interhashmap->contents[i]->pairs[j] == 0) {
+                    printf("0 ");
+                } else {
+                    printf("(");
+                    printf("%s", interhashmap->contents[i]->pairs[j]->key);
+                    printf(", ");
+                    printf("%s", interhashmap->contents[i]->pairs[j]->value);
+                    printf(") ");
+                }
+            }
+            printf("]\n");
+        }
+    }
+    printf("********************************************\n");
+}
+
 int main() {
-    printf("hello worlds\n");
     interhashmap = MapInit();
-    printf("%ld\n", interhashmap->capacity);
+    char key[] = "bruh";
+    char val[] = "1";
+    char key_2[] = "boy";
+    char val_2[] = "1";
+    MapPut(interhashmap, &key, &val);
+    MapPut(interhashmap, &key, &val);
+    MapPut(interhashmap, &key_2, &val_2);
+
+    debug_print(interhashmap);
     free(interhashmap);
     return 0;
 }
