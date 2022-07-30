@@ -7,6 +7,7 @@
 typedef struct {
     char* key;
     void* value;
+    int marked;
 } MapPair;
 
 typedef struct {

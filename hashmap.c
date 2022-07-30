@@ -43,6 +43,7 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
 
     newpair->key = strdup(key);
     newpair->value = (void*)malloc(value_size);
+    newpair->marked = 0;
     memcpy(newpair->value, value, value_size);
     h = Hash(key, hashmap->capacity);
 
@@ -163,7 +164,7 @@ void debug_print_hashmap(HashMap* hashmap) {
             printf("\t\t0\n");
         } else {
             // print MapPair
-            printf("\t\t[%s, %d]\n", hashmap->contents[i]->key,
+            printf("\t\t(%s, %d)\n", hashmap->contents[i]->key,
                    *(int*)hashmap->contents[i]->value);
         }
     }

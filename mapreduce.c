@@ -11,12 +11,18 @@
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
 
+/**
+ * Macro to shift a section of memory by an offset, used when inserting or
+ * removing items.
+ */
+#define arraylist_memshift(s, offset, length) \
+    memmove((s) + (offset), (s), (length) * sizeof(s));
+
 // new structs
 typedef struct {
     MapPair** pairs;
     size_t size;
     size_t capacity;
-    int curr;
 } ArrayList;
 
 typedef struct {
@@ -61,7 +67,6 @@ ArrayList* ArrayListInit(void) {
     arraylist->pairs =
         (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
     arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
-    arraylist->curr = 0;
     return arraylist;
 }
 
@@ -133,6 +138,16 @@ void arraylist_add(ArrayList* l, MapPair* item) {
 }
 
 /**
+ * Remove the item at index, shifting the following items back by one spot.
+ */
+void* arraylist_remove(ArrayList* l, unsigned int index) {
+    void* value = l->pairs[index];
+    arraylist_memshift(l->pairs + index + 1, -1, l->size - index);
+    l->size--;
+    return value;
+}
+
+/**
  * @brief Inserts key value pair in hashmap
  *
  * @param interhashmap Pointer to interhashmap
@@ -157,6 +172,7 @@ void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
 
     newpair->key = strdup(key);
     newpair->value = strdup(value);
+    newpair->marked = 0;
     h = MR_DefaultHashPartition(key, interhashmap->capacity);
     // printf("%s mapped to %d\n", newpair->key, h);
 
@@ -227,29 +243,19 @@ unsigned long MR_DefaultHashPartition(char* key, int num_partitions) {
 }
 
 char* get_func(char* key, int partition_number) {
-    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
-    // if key does not exist
-    if (interhashmap->contents[h] == 0) {
-        return NULL;
-    }
-    // find the key
-    while (interhashmap->contents[h] != NULL) {
-        // key found
-        if (!strcmp(key, interhashmap->contents[h]->pairs[0]->key)) {
-            // if ran accross every key
-            if (interhashmap->contents[h]->curr >=
-                interhashmap->contents[h]->size) {
-                return NULL;
+    // printf("get_func key(%s, %d)\n", key, partition_number);
+    // printf("getting %s from partition number %d\n", key, partition_number);
+    ArrayList* partition = interhashmap->contents[partition_number];
+    MapPair* el;
+    if (partition != 0) {
+        // iterate to find key in partition
+        for (int i = 0; i < partition->size; i++) {
+            el = partition->pairs[i];
+            if (!strcmp(el->key, key) && el->marked == 0) {
+                // mark element
+                el->marked = 1;
+                return el->value;
             }
-
-            // increment
-            interhashmap->contents[h]->curr += 1;
-
-            return interhashmap->contents[h]->pairs[0]->value;
-        }
-        h++;
-        if (h == interhashmap->capacity) {
-            h = 0;
         }
     }
     return NULL;
@@ -288,13 +294,30 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
     }
 
     // debug_print_interhashmap(interhashmap);
-
+    // Reducing Phase
+    // iterate all partitions
     for (int i = 0; i < interhashmap->capacity; i++) {
-        if (interhashmap->contents[i] != 0) {
+        ArrayList* partition = interhashmap->contents[i];
+        if (partition != 0) {
+            // printf("Currently in partition: %d\n", i);
+            // printf("partition size: %ld\n", partition->size);
             // calls Reduce() once for every key
-            // printf("Calling reduce() for index %d\n", i);
-            (*reduce)(interhashmap->contents[i]->pairs[0]->key, get_func,
-                      interhashmap->size);
+            // intial Reduce() for first key
+            char* curr_key = partition->pairs[0]->key;
+            // printf("(1)Running reducer for key: %s\n", curr_key);
+            (*reduce)(curr_key, get_func,
+                      MR_DefaultHashPartition(curr_key, num_reducers));
+            for (int j = 1; j < partition->size; j++) {
+                // if new key encountered in same partition
+                // printf("checking key: %s\n", partition->pairs[j]->key);
+                // printf("against key: %s\n", curr_key);
+                if (strcmp(partition->pairs[j]->key, curr_key)) {
+                    curr_key = partition->pairs[j]->key;
+                    // printf("(2)Running reducer for key: %s\n", curr_key);
+                    (*reduce)(curr_key, get_func,
+                              MR_DefaultHashPartition(curr_key, num_reducers));
+                }
+            }
         }
     }
 }
