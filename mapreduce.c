@@ -261,8 +261,6 @@ int cmp(const void* a, const void* b) {
     return strcmp(str1, str2);
 }
 
-void sort_partitions() { return; }
-
 void MR_Emit(char* key, char* value) {
     InterMapPut(interhashmap, key, value);
     return;
@@ -278,7 +276,18 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
         (*map)(argv[i]);
     }
 
-    debug_print_interhashmap(interhashmap);
+    // debug_print_interhashmap(interhashmap);
+
+    // sort each partition
+    for (i = 0; i < interhashmap->capacity; i++) {
+        // checks if partition is not empty
+        if (interhashmap->contents[i] != 0) {
+            qsort(interhashmap->contents[i]->pairs,
+                  interhashmap->contents[i]->size, sizeof(MapPair*), cmp);
+        }
+    }
+
+    // debug_print_interhashmap(interhashmap);
 
     for (int i = 0; i < interhashmap->capacity; i++) {
         if (interhashmap->contents[i] != 0) {
