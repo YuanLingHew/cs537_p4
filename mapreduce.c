@@ -11,13 +11,6 @@
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
 
-/**
- * Macro to shift a section of memory by an offset, used when inserting or
- * removing items.
- */
-#define arraylist_memshift(s, offset, length) \
-    memmove((s) + (offset), (s), (length) * sizeof(s));
-
 // new structs
 typedef struct {
     MapPair** pairs;
@@ -44,14 +37,6 @@ InterHashMap* InterMapInit(int capacity) {
     interhashmap->capacity = capacity;
     interhashmap->size = 0;
 
-    /*
-    // initializes contents (runs ArrayListInit)
-    for (int i = 0; i < INTERMAP_INIT_CAPACITY; i++) {
-        // initializes empty arraylists
-        ArrayList* new = ArrayListInit();
-        interhashmap->contents[i] = new;
-    }
-    */
     return interhashmap;
 }
 
@@ -68,54 +53,6 @@ ArrayList* ArrayListInit(void) {
         (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
     arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
     return arraylist;
-}
-
-/**
- * @brief Resize hashmap (double the size)
- *
- * @param map Pointer to HashMap
- * @return int 0 for success
- */
-int resize_intermap(InterHashMap* interhashmap) {
-    ArrayList** temp;
-    size_t newcapacity = interhashmap->capacity * 2;  // double the capacity
-
-    // allocate a new interhashmap table
-    temp = (ArrayList**)calloc(newcapacity, sizeof(ArrayList*));
-    if (temp == NULL) {
-        printf("Malloc error! %s\n", strerror(errno));
-        return -1;
-    }
-
-    size_t i;
-    int h;
-    ArrayList* entry;
-    // rehash all the old entries to fit the new table
-    for (i = 0; i < interhashmap->capacity; i++) {
-        // if ArrayList exists
-        if (interhashmap->contents[i] != NULL) {
-            entry = interhashmap->contents[i];
-        } else
-            continue;
-
-        // hash new value with new capacity
-        h = MR_DefaultHashPartition(entry->pairs[0]->key, newcapacity);
-
-        // handle collision
-        while (temp[h] != NULL) {
-            h++;
-            if (h == newcapacity) h = 0;
-        }
-
-        temp[h] = entry;
-    }
-
-    // free the old table
-    free(interhashmap->contents);
-    // update contents with the new table, increase interhashmap capacity
-    interhashmap->contents = temp;
-    interhashmap->capacity = newcapacity;
-    return 0;
 }
 
 /**
@@ -138,16 +75,6 @@ void arraylist_add(ArrayList* l, MapPair* item) {
 }
 
 /**
- * Remove the item at index, shifting the following items back by one spot.
- */
-void* arraylist_remove(ArrayList* l, unsigned int index) {
-    void* value = l->pairs[index];
-    arraylist_memshift(l->pairs + index + 1, -1, l->size - index);
-    l->size--;
-    return value;
-}
-
-/**
  * @brief Inserts key value pair in hashmap
  *
  * @param interhashmap Pointer to interhashmap
@@ -156,16 +83,6 @@ void* arraylist_remove(ArrayList* l, unsigned int index) {
  * @param value_size int value of size of HashMap
  */
 void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
-    // printf("MAPPUT CALLED\n");
-    // resize interhashmap if half filled
-    /*
-    if (interhashmap->size > (interhashmap->capacity / 2)) {
-        if (resize_intermap(interhashmap) < 0) {
-            exit(0);
-        }
-    }
-    */
-
     // initialize new kv pair and hash value
     MapPair* newpair = (MapPair*)malloc(sizeof(MapPair));
     int h;
@@ -188,21 +105,6 @@ void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
         arraylist_add(interhashmap->contents[h], newpair);
     }
     interhashmap->size += 1;
-}
-
-/**
- * @brief Get value of key value pair
- *
- * @param interhashmap Pointer to hashmap
- * @param key Char pointer to key
- * @return char* to value, NULL if not found
- */
-char* InterMapGet(InterHashMap* interhashmap, char* key) {
-    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
-    if (interhashmap->contents[h] == 0) {
-        return NULL;
-    }
-    return interhashmap->contents[h]->pairs[0]->value;
 }
 
 void debug_print_interhashmap(InterHashMap* interhashmap) {
