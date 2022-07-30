@@ -5,10 +5,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hashmap.h"
+
 #define INTERMAP_INIT_CAPACITY 11
 #define ARRAYLIST_INIT_CAPACITY 1
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
+
+// new structs
+typedef struct {
+    MapPair** pairs;
+    size_t size;
+    size_t capacity;
+    int curr;
+} ArrayList;
+
+typedef struct {
+    ArrayList** contents;
+    size_t capacity;
+    size_t size;
+} InterHashMap;
 
 InterHashMap* interhashmap;
 
@@ -49,68 +65,6 @@ ArrayList* ArrayListInit(void) {
     arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
     arraylist->curr = 0;
     return arraylist;
-}
-
-/**
- * @brief Inserts key value pair in hashmap
- *
- * @param interhashmap Pointer to interhashmap
- * @param key Char pointer to key
- * @param value Void pointer to value
- * @param value_size int value of size of HashMap
- */
-void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
-    // printf("MAPPUT CALLED\n");
-    // resize interhashmap if half filled
-    if (interhashmap->size > (interhashmap->capacity / 2)) {
-        if (resize_intermap(interhashmap) < 0) {
-            exit(0);
-        }
-    }
-
-    // initialize new kv pair and hash value
-    MapPair* newpair = (MapPair*)malloc(sizeof(MapPair));
-    int h;
-
-    newpair->key = strdup(key);
-    newpair->value = strdup(value);
-    h = MR_DefaultHashPartition(key, interhashmap->capacity);
-    // printf("%s mapped to %d\n", newpair->key, h);
-
-    // if ArrayList exists
-    while (interhashmap->contents[h] != NULL) {
-        // if keys are equal, add to ArrayList
-        if (!strcmp(key, interhashmap->contents[h]->pairs[0]->key)) {
-            arraylist_add(interhashmap->contents[h], newpair);
-            return;
-        }
-        // chaining when collision occurs
-        h++;
-        if (h == interhashmap->capacity) h = 0;
-    }
-
-    // key not found in interhashmap, h is an empty slot
-    // add pair to interhashmap
-    // create new ArrayList*
-    ArrayList* new = ArrayListInit();
-    interhashmap->contents[h] = new;
-    arraylist_add(interhashmap->contents[h], newpair);
-    interhashmap->size += 1;
-}
-
-/**
- * @brief Get value of key value pair
- *
- * @param interhashmap Pointer to hashmap
- * @param key Char pointer to key
- * @return char* to value, NULL if not found
- */
-char* InterMapGet(InterHashMap* interhashmap, char* key) {
-    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
-    if (interhashmap->contents[h] == 0) {
-        return NULL;
-    }
-    return interhashmap->contents[h]->pairs[0]->value;
 }
 
 /**
@@ -178,6 +132,68 @@ void arraylist_allocate(ArrayList* l, unsigned int size) {
 void arraylist_add(ArrayList* l, MapPair* item) {
     arraylist_allocate(l, l->size + 1);
     l->pairs[l->size++] = item;
+}
+
+/**
+ * @brief Inserts key value pair in hashmap
+ *
+ * @param interhashmap Pointer to interhashmap
+ * @param key Char pointer to key
+ * @param value Void pointer to value
+ * @param value_size int value of size of HashMap
+ */
+void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
+    // printf("MAPPUT CALLED\n");
+    // resize interhashmap if half filled
+    if (interhashmap->size > (interhashmap->capacity / 2)) {
+        if (resize_intermap(interhashmap) < 0) {
+            exit(0);
+        }
+    }
+
+    // initialize new kv pair and hash value
+    MapPair* newpair = (MapPair*)malloc(sizeof(MapPair));
+    int h;
+
+    newpair->key = strdup(key);
+    newpair->value = strdup(value);
+    h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    // printf("%s mapped to %d\n", newpair->key, h);
+
+    // if ArrayList exists
+    while (interhashmap->contents[h] != NULL) {
+        // if keys are equal, add to ArrayList
+        if (!strcmp(key, interhashmap->contents[h]->pairs[0]->key)) {
+            arraylist_add(interhashmap->contents[h], newpair);
+            return;
+        }
+        // chaining when collision occurs
+        h++;
+        if (h == interhashmap->capacity) h = 0;
+    }
+
+    // key not found in interhashmap, h is an empty slot
+    // add pair to interhashmap
+    // create new ArrayList*
+    ArrayList* new = ArrayListInit();
+    interhashmap->contents[h] = new;
+    arraylist_add(interhashmap->contents[h], newpair);
+    interhashmap->size += 1;
+}
+
+/**
+ * @brief Get value of key value pair
+ *
+ * @param interhashmap Pointer to hashmap
+ * @param key Char pointer to key
+ * @return char* to value, NULL if not found
+ */
+char* InterMapGet(InterHashMap* interhashmap, char* key) {
+    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    if (interhashmap->contents[h] == 0) {
+        return NULL;
+    }
+    return interhashmap->contents[h]->pairs[0]->value;
 }
 
 void debug_print_interhashmap(InterHashMap* interhashmap) {
