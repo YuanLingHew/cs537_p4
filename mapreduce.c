@@ -17,7 +17,7 @@ InterHashMap* interhashmap;
  *
  * @return InterHashMap* Pointer to HashMap
  */
-InterHashMap* MapInit(void) {
+InterHashMap* InterMapInit(void) {
     InterHashMap* interhashmap = (InterHashMap*)malloc(sizeof(InterHashMap));
     interhashmap->contents =
         (ArrayList**)calloc(INTERMAP_INIT_CAPACITY, sizeof(ArrayList*));
@@ -47,6 +47,7 @@ ArrayList* ArrayListInit(void) {
     arraylist->pairs =
         (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
     arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
+    arraylist->curr = 0;
     return arraylist;
 }
 
@@ -58,11 +59,11 @@ ArrayList* ArrayListInit(void) {
  * @param value Void pointer to value
  * @param value_size int value of size of HashMap
  */
-void MapPut(InterHashMap* interhashmap, char* key, char* value) {
+void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
     // printf("MAPPUT CALLED\n");
     // resize interhashmap if half filled
     if (interhashmap->size > (interhashmap->capacity / 2)) {
-        if (resize_map(interhashmap) < 0) {
+        if (resize_intermap(interhashmap) < 0) {
             exit(0);
         }
     }
@@ -73,8 +74,8 @@ void MapPut(InterHashMap* interhashmap, char* key, char* value) {
 
     newpair->key = strdup(key);
     newpair->value = strdup(value);
-    h = Hash(key, interhashmap->capacity);
-    // printf("%d\n", h);
+    h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    // printf("%s mapped to %d\n", newpair->key, h);
 
     // if ArrayList exists
     while (interhashmap->contents[h] != NULL) {
@@ -98,12 +99,27 @@ void MapPut(InterHashMap* interhashmap, char* key, char* value) {
 }
 
 /**
+ * @brief Get value of key value pair
+ *
+ * @param interhashmap Pointer to hashmap
+ * @param key Char pointer to key
+ * @return char* to value, NULL if not found
+ */
+char* InterMapGet(InterHashMap* interhashmap, char* key) {
+    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    if (interhashmap->contents[h] == 0) {
+        return NULL;
+    }
+    return interhashmap->contents[h]->pairs[0]->value;
+}
+
+/**
  * @brief Resize hashmap (double the size)
  *
  * @param map Pointer to HashMap
  * @return int 0 for success
  */
-int resize_map(InterHashMap* interhashmap) {
+int resize_intermap(InterHashMap* interhashmap) {
     ArrayList** temp;
     size_t newcapacity = interhashmap->capacity * 2;  // double the capacity
 
@@ -126,7 +142,7 @@ int resize_map(InterHashMap* interhashmap) {
             continue;
 
         // hash new value with new capacity
-        h = Hash(entry->pairs[0]->key, newcapacity);
+        h = MR_DefaultHashPartition(entry->pairs[0]->key, newcapacity);
 
         // handle collision
         while (temp[h] != NULL) {
@@ -164,32 +180,12 @@ void arraylist_add(ArrayList* l, MapPair* item) {
     l->pairs[l->size++] = item;
 }
 
-/**
- * @brief FNV-1a hashing algorithm
- * https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function#FNV-1a_hash
- *
- * @param key char* of key
- * @param capacity size_t size of HashMap
- * @return hashed value (index of HashMap)
- */
-size_t Hash(char* key, size_t capacity) {
-    size_t hash = FNV_OFFSET;
-    for (const char* p = key; *p; p++) {
-        hash ^= (size_t)(unsigned char)(*p);
-        hash *= FNV_PRIME;
-        hash ^= (size_t)(*p);
-    }
-    return (hash % capacity);
-
-    return 0;
-}
-
 void debug_print(InterHashMap* interhashmap) {
     printf("********************************************\n");
     printf("InterHashMap:\n");
     printf("Address:\t\tIndex:\t\tArrayList\n");
     for (int i = 0; i < interhashmap->capacity; i++) {
-        printf("%X\t\t%d", &(interhashmap->contents[i]), i);
+        printf("%p\t\t%d", &(interhashmap->contents[i]), i);
         if (interhashmap->contents[i] == 0) {
             printf("\t\t0\n");
         } else {
@@ -203,7 +199,7 @@ void debug_print(InterHashMap* interhashmap) {
                     printf("(");
                     printf("%s", interhashmap->contents[i]->pairs[j]->key);
                     printf(", ");
-                    printf("%s", interhashmap->contents[i]->pairs[j]->value);
+                    printf("%p", interhashmap->contents[i]->pairs[j]->value);
                     printf(") ");
                 }
             }
@@ -213,46 +209,50 @@ void debug_print(InterHashMap* interhashmap) {
     printf("********************************************\n");
 }
 
-int main() {
-    interhashmap = MapInit();
-    char key[] = "bruh";
-    char val[] = "1";
-    char key2[] = "boy";
-    char val2[] = "1";
-    char key3[] = "beans";
-    char val3[] = "1";
-    char key4[] = "bitch";
-    char val4[] = "1";
-    char key5[] = "booobs";
-    char val5[] = "1";
-    char key6[] = "banana";
-    char val6[] = "1";
-    char key7[] = "foam";
-    char val7[] = "1";
-    char key8[] = "cum";
-    char val8[] = "1";
-    char key9[] = "star";
-    char val9[] = "1";
-    char key10[] = "sheesh";
-    char val10[] = "1";
-    MapPut(interhashmap, &key, &val);
-    MapPut(interhashmap, &key, &val);
-    MapPut(interhashmap, &key, &val);
-    MapPut(interhashmap, &key, &val);
-    MapPut(interhashmap, &key, &val);
-    MapPut(interhashmap, &key2, &val2);
-    MapPut(interhashmap, &key3, &val3);
-    MapPut(interhashmap, &key4, &val4);
-    MapPut(interhashmap, &key5, &val5);
-    MapPut(interhashmap, &key6, &val6);
-    MapPut(interhashmap, &key7, &val7);
-    //  MapPut(interhashmap, &key8, &val8);
-    //  MapPut(interhashmap, &key9, &val9);
-    //  MapPut(interhashmap, &key10, &val10);
+unsigned long MR_DefaultHashPartition(char* key, int num_partitions) {
+    unsigned long hash = 5381;
+    int c;
+    while ((c = *key++) != '\0') hash = hash * 33 + c;
+    return hash % num_partitions;
+}
 
-    debug_print(interhashmap);
-    printf("Size: %d\n", interhashmap->size);
-    printf("Capacity: %d\n", interhashmap->capacity);
-    free(interhashmap);
-    return 0;
+char* get_func(char* key, int partition_number) {
+    int h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    // if key does not exist
+    if (interhashmap->contents[h] == 0) {
+        return NULL;
+    }
+    // if ran accross every key
+    if (interhashmap->contents[h]->curr >= interhashmap->contents[h]->size) {
+        return NULL;
+    }
+
+    // increment
+    interhashmap->contents[h]->curr += 1;
+
+    return interhashmap->contents[h]->pairs[0]->value;
+}
+
+void MR_Emit(char* key, char* value) {
+    InterMapPut(interhashmap, key, value);
+    return;
+}
+
+void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
+            int num_reducers, Partitioner partition) {
+    // intialize interhashmap
+    interhashmap = InterMapInit();
+    int i;
+    for (i = 1; i < argc; i++) {
+        // calls MR_Emit() for each word
+        (*map)(argv[i]);
+    }
+
+    for (int i = 0; i < interhashmap->capacity; i++) {
+        if (interhashmap->contents[i] != 0) {
+            // calls Reduce() once for every key
+            (*reduce)(interhashmap->contents[i]->pairs[0]->key, get_func,
+                      interhashmap->size);
+        }
+    }
 }

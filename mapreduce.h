@@ -1,5 +1,6 @@
 #ifndef __mapreduce_h__
 #define __mapreduce_h__
+#include "hashmap.h"
 #include "stddef.h"
 
 // Different function pointer types used by MR
@@ -10,14 +11,10 @@ typedef unsigned long (*Partitioner)(char *key, int num_partitions);
 
 // new structs
 typedef struct {
-    char *key;
-    char *value;
-} MapPair;
-
-typedef struct {
     MapPair **pairs;
     size_t size;
     size_t capacity;
+    int curr;
 } ArrayList;
 
 typedef struct {
@@ -35,9 +32,16 @@ void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, Reducer reduce,
             int num_reducers, Partitioner partition);
 
 // Internal functions:
-InterHashMap *MapInit(void);
+InterHashMap *InterMapInit(void);
 ArrayList *ArrayListInit(void);
-void MapPut(InterHashMap *interhashmap, char *key, char *value);
+void InterMapPut(InterHashMap *interhashmap, char *key, char *value);
+int resize_intermap(InterHashMap *interhashmap);
 size_t Hash(char *key, size_t capacity);
+void arraylist_allocate(ArrayList *l, unsigned int size);
+void arraylist_add(ArrayList *l, MapPair *item);
+void debug_print(InterHashMap *interhashmap);
+unsigned long MR_DefaultHashPartition(char *key, int num_partitions);
+char *get_func(char *key, int partition_number);
+char *InterMapGet(InterHashMap *interhashmap, char *key);
 
 #endif  // __mapreduce_h__

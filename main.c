@@ -44,7 +44,6 @@ void Reduce(char *key, Getter get_next, int partition_number) {
  * is printed. */
 
 int main(int argc, char *argv[]) {
-    printf("main() called\n");
     if (argc < 3) {
         printf("Invalid usage: ./hashmap <filename> ... <searchterm>\n");
         return 1;
