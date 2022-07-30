@@ -25,4 +25,7 @@ size_t MapSize(HashMap* map);
 int resize_map(HashMap* map);
 size_t Hash(char* key, size_t capacity);
 
+// DEBUG
+void debug_print_hashmap(HashMap* hashmap);
+
 #endif  // __hashmap_h__

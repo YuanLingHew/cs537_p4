@@ -152,3 +152,20 @@ size_t Hash(char* key, size_t capacity) {
     }
     return (hash % capacity);
 }
+
+void debug_print_hashmap(HashMap* hashmap) {
+    printf("********************************************\n");
+    printf("HashMap:\n");
+    printf("Address:\t\tIndex:\t\tMapPair\n");
+    for (int i = 0; i < hashmap->capacity; i++) {
+        printf("%p\t\t%d", &(hashmap->contents[i]), i);
+        if (hashmap->contents[i] == 0) {
+            printf("\t\t0\n");
+        } else {
+            // print MapPair
+            printf("\t\t[%s, %d]\n", hashmap->contents[i]->key,
+                   *(int*)hashmap->contents[i]->value);
+        }
+    }
+    printf("********************************************\n");
+}

@@ -39,7 +39,7 @@ int resize_intermap(InterHashMap *interhashmap);
 size_t Hash(char *key, size_t capacity);
 void arraylist_allocate(ArrayList *l, unsigned int size);
 void arraylist_add(ArrayList *l, MapPair *item);
-void debug_print(InterHashMap *interhashmap);
+void debug_print_interhashmap(InterHashMap *interhashmap);
 unsigned long MR_DefaultHashPartition(char *key, int num_partitions);
 char *get_func(char *key, int partition_number);
 char *InterMapGet(InterHashMap *interhashmap, char *key);

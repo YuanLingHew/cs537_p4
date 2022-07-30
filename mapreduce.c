@@ -180,7 +180,7 @@ void arraylist_add(ArrayList* l, MapPair* item) {
     l->pairs[l->size++] = item;
 }
 
-void debug_print(InterHashMap* interhashmap) {
+void debug_print_interhashmap(InterHashMap* interhashmap) {
     printf("********************************************\n");
     printf("InterHashMap:\n");
     printf("Address:\t\tIndex:\t\tArrayList\n");
@@ -199,7 +199,8 @@ void debug_print(InterHashMap* interhashmap) {
                     printf("(");
                     printf("%s", interhashmap->contents[i]->pairs[j]->key);
                     printf(", ");
-                    printf("%p", interhashmap->contents[i]->pairs[j]->value);
+                    printf("%s",
+                           (char*)(interhashmap->contents[i]->pairs[j]->value));
                     printf(") ");
                 }
             }
@@ -222,15 +223,27 @@ char* get_func(char* key, int partition_number) {
     if (interhashmap->contents[h] == 0) {
         return NULL;
     }
-    // if ran accross every key
-    if (interhashmap->contents[h]->curr >= interhashmap->contents[h]->size) {
-        return NULL;
+    // find the key
+    while (interhashmap->contents[h] != NULL) {
+        // key found
+        if (!strcmp(key, interhashmap->contents[h]->pairs[0]->key)) {
+            // if ran accross every key
+            if (interhashmap->contents[h]->curr >=
+                interhashmap->contents[h]->size) {
+                return NULL;
+            }
+
+            // increment
+            interhashmap->contents[h]->curr += 1;
+
+            return interhashmap->contents[h]->pairs[0]->value;
+        }
+        h++;
+        if (h == interhashmap->capacity) {
+            h = 0;
+        }
     }
-
-    // increment
-    interhashmap->contents[h]->curr += 1;
-
-    return interhashmap->contents[h]->pairs[0]->value;
+    return NULL;
 }
 
 void MR_Emit(char* key, char* value) {
@@ -248,9 +261,12 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
         (*map)(argv[i]);
     }
 
+    // debug_print_interhashmap(interhashmap);
+
     for (int i = 0; i < interhashmap->capacity; i++) {
         if (interhashmap->contents[i] != 0) {
             // calls Reduce() once for every key
+            // printf("Calling reduce() for index %d\n", i);
             (*reduce)(interhashmap->contents[i]->pairs[0]->key, get_func,
                       interhashmap->size);
         }

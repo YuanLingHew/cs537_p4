@@ -29,11 +29,14 @@ void Map(char *file_name) {
 
 void Reduce(char *key, Getter get_next, int partition_number) {
     // HashMap take a (void *) as value
+    // printf("Here for key %s\n", key);
     int *count = (int *)malloc(sizeof(int));
     *count = 0;
     char *value;
 
     while ((value = get_next(key, partition_number)) != NULL) (*count)++;
+
+    // printf("count = %d\n", *count);
 
     MapPut(hashmap, key, count, sizeof(int));
 }
@@ -57,6 +60,7 @@ int main(int argc, char *argv[]) {
     // run mapreduce
     MR_Run(argc, argv, Map, 10, Reduce, 10, MR_DefaultHashPartition);
     // get the number of occurrences and print
+    // debug_print_hashmap(hashmap);
     char *result;
     if ((result = MapGet(hashmap, searchterm)) != NULL) {
         printf("Found %s %d times\n", searchterm, *(int *)result);
