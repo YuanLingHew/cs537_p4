@@ -78,7 +78,7 @@ ReduceThreadArgs* ReduceThreadArgsInit(Reducer reduce, int partition_number) {
     ReduceThreadArgs* rtarg =
         (ReduceThreadArgs*)malloc(sizeof(ReduceThreadArgs));
     rtarg->reduce = reduce;
-    rtarg->partition_number = -1;
+    rtarg->partition_number = partition_number;
 
     return rtarg;
 }
@@ -233,39 +233,40 @@ void* map_threads(void* args) {
 }
 
 void* reduce_threads(void* args) {
-    printf("uhh1\n");
+    
     ReduceThreadArgs* arguments = (ReduceThreadArgs*)args;
+    // printf("SORTING PARTITION %d\n", arguments->partition_number);
     ArrayList* curr_partition =
         interhashmap->contents[arguments->partition_number];
 
-    printf("uhh2\n");
+    // printf("uhh2\n");
 
     // sorting phase
-    printf("%ld\n", sizeof(curr_partition->pairs));
-    printf("%ld\n", curr_partition->size);
+    // printf("%ld\n", sizeof(curr_partition->pairs));
+    // printf("%ld\n", curr_partition->size);
     qsort(curr_partition->pairs, curr_partition->size, sizeof(MapPair*), cmp);
 
-    printf("uhh3\n");
+    // printf("uhh3\n");
 
     // reducing phase
     char* curr_key = curr_partition->pairs[0]->key;
-    printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
-           arguments->partition_number, curr_key);
+    // printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
+           // arguments->partition_number, curr_key);
     (*arguments->reduce)(curr_key, get_func, arguments->partition_number);
 
     for (int j = 1; j < curr_partition->size; j++) {
         // if new key encountered in same partition
         if (strcmp(curr_partition->pairs[j]->key, curr_key)) {
             curr_key = curr_partition->pairs[j]->key;
-            printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
-                   arguments->partition_number, curr_key);
+            // printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
+                   // arguments->partition_number, curr_key);
             (*arguments->reduce)(curr_key, get_func,
                                  arguments->partition_number);
         }
     }
-    printf("FINISHED REDUCE THREADS FOR PARTITION %d\n",
-           arguments->partition_number);
-    free(arguments);
+    // printf("FINISHED REDUCE THREADS FOR PARTITION %d\n",
+           // arguments->partition_number);
+    // free(arguments);
     return NULL;
 }
 
@@ -302,6 +303,7 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
 
     // wait for threads to finish
     for (int i = 0; i < num_mappers; i++) {
+        printf("waiting for mthread[%d]\n", i);
         if (pthread_join(mthread[i], NULL) != 0) {
             printf("something went wrong HERE\n");
         }
@@ -327,24 +329,31 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
     printf("Size: %ld\n", interhashmap->size);
     printf("Capacity: %ld\n", interhashmap->capacity);
     pthread_t rthread[interhashmap->size];
+    int j = 0;
     for (int i = 0; i < interhashmap->capacity; i++) {
         // printf("HERE\n");
         ArrayList* partition = interhashmap->contents[i];
         // if partition is occupied
         if (partition != 0) {
-            printf("here at %d\n", i);
+            // printf("here at %d\n", i);
             reducethreadargs = ReduceThreadArgsInit(reduce, i);
-            if (pthread_create(&rthread[i], NULL, &reduce_threads,
-                               &reducethreadargs) != 0) {
+            if (pthread_create(&rthread[j], NULL, &reduce_threads,
+                               (void*)reducethreadargs) != 0) {
                 printf("something went wrongSSSSS\n");
             }
+            j++;
         }
     }
 
+    printf("Done creating\n");
+
     // wait for threads to finish
     for (int i = 0; i < interhashmap->size; i++) {
-        if (pthread_join(rthread[i], NULL) != 0) {
-            printf("something went wrong\n");
+        // printf("waiting for rthread[%d]\n", i);
+        int rc = pthread_join(rthread[i], NULL);
+        if ( rc != 0) {
+            printf("something went wrong at %d\n", i);
+            printf("code %d\n", rc);
         }
     }
 
