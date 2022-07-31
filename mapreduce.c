@@ -30,8 +30,14 @@ typedef struct {
     char** files;
 } MapThreadArgs;
 
+typedef struct {
+    Reducer reduce;
+    int partition_number;
+} ReduceThreadArgs;
+
 InterHashMap* interhashmap;
 MapThreadArgs* mapthreadargs;
+ReduceThreadArgs* reducethreadargs;
 pthread_mutex_t mlock;
 
 /**
@@ -61,6 +67,20 @@ MapThreadArgs* MapThreadArgsInit(Mapper map, char** files, int numfiles) {
     mtarg->files = files;
 
     return mtarg;
+}
+
+/**
+ * @brief Initializes ReduceThreadArgs
+ *
+ * @return ReduceThreadArgs* Pointer to ReduceThreadArgs
+ */
+ReduceThreadArgs* ReduceThreadArgsInit(Reducer reduce, int partition_number) {
+    ReduceThreadArgs* rtarg =
+        (ReduceThreadArgs*)malloc(sizeof(ReduceThreadArgs));
+    rtarg->reduce = reduce;
+    rtarg->partition_number = -1;
+
+    return rtarg;
 }
 
 /**
@@ -108,29 +128,30 @@ void arraylist_add(ArrayList* l, MapPair* item) {
 void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
     // initialize new kv pair and hash value
     MapPair* newpair = (MapPair*)malloc(sizeof(MapPair));
-    int h;
+    int partition_number;
 
     newpair->key = strdup(key);
     newpair->value = strdup(value);
     newpair->marked = 0;
-    h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    partition_number = MR_DefaultHashPartition(key, interhashmap->capacity);
     // printf("%s mapped to %d\n", newpair->key, h);
 
     // if ArrayList exists
-    if (interhashmap->contents[h] != NULL) {
-        sem_wait(&(interhashmap->contents[h]->sem));
-        arraylist_add(interhashmap->contents[h], newpair);
+    if (interhashmap->contents[partition_number] != NULL) {
+        sem_wait(&(interhashmap->contents[partition_number]->sem));
+        arraylist_add(interhashmap->contents[partition_number], newpair);
     } else {
         // key not found in interhashmap, h is an empty slot
         // add pair to interhashmap
         // create new ArrayList*
         ArrayList* new = ArrayListInit();
-        interhashmap->contents[h] = new;
-        sem_wait(&(interhashmap->contents[h]->sem));
-        arraylist_add(interhashmap->contents[h], newpair);
+        interhashmap->contents[partition_number] = new;
+        sem_wait(&(interhashmap->contents[partition_number]->sem));
+        arraylist_add(interhashmap->contents[partition_number], newpair);
+        interhashmap->size += 1;
     }
-    interhashmap->size += 1;
-    sem_post(&(interhashmap->contents[h]->sem));
+
+    sem_post(&(interhashmap->contents[partition_number]->sem));
 }
 
 void debug_print_interhashmap(InterHashMap* interhashmap) {
@@ -195,7 +216,7 @@ int cmp(const void* a, const void* b) {
     return strcmp(str1, str2);
 }
 
-void* create_map_threads(void* args) {
+void* map_threads(void* args) {
     for (;;) {
         char* file;
         pthread_mutex_lock(&mlock);
@@ -211,12 +232,53 @@ void* create_map_threads(void* args) {
     }
 }
 
+void* reduce_threads(void* args) {
+    printf("uhh1\n");
+    ReduceThreadArgs* arguments = (ReduceThreadArgs*)args;
+    ArrayList* curr_partition =
+        interhashmap->contents[arguments->partition_number];
+
+    printf("uhh2\n");
+
+    // sorting phase
+    printf("%ld\n", sizeof(curr_partition->pairs));
+    printf("%ld\n", curr_partition->size);
+    qsort(curr_partition->pairs, curr_partition->size, sizeof(MapPair*), cmp);
+
+    printf("uhh3\n");
+
+    // reducing phase
+    char* curr_key = curr_partition->pairs[0]->key;
+    printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
+           arguments->partition_number, curr_key);
+    (*arguments->reduce)(curr_key, get_func, arguments->partition_number);
+
+    for (int j = 1; j < curr_partition->size; j++) {
+        // if new key encountered in same partition
+        if (strcmp(curr_partition->pairs[j]->key, curr_key)) {
+            curr_key = curr_partition->pairs[j]->key;
+            printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
+                   arguments->partition_number, curr_key);
+            (*arguments->reduce)(curr_key, get_func,
+                                 arguments->partition_number);
+        }
+    }
+    printf("FINISHED REDUCE THREADS FOR PARTITION %d\n",
+           arguments->partition_number);
+    free(arguments);
+    return NULL;
+}
+
 // threadify this
 void MR_Emit(char* key, char* value) {
     // get partition number
-    // int h = MR_DefaultHashPartition(key, interhashmap->capacity);
+    // int partition_number =
+    // MR_DefaultHashPartition(key,interhashmap->capacity);
 
+    // acquire lock
+    // sem_wait(&(interhashmap->contents[partition_number]->sem));
     InterMapPut(interhashmap, key, value);
+    // sem_post(&(interhashmap->contents[partition_number]->sem));
     return;
 }
 
@@ -233,15 +295,15 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
     pthread_mutex_init(&mlock, NULL);
     pthread_t mthread[num_mappers];
     for (int i = 0; i < num_mappers; i++) {
-        if (pthread_create(&mthread[i], NULL, &create_map_threads, NULL) != 0) {
-            printf("something went wrong\n");
+        if (pthread_create(&mthread[i], NULL, &map_threads, NULL) != 0) {
+            printf("something went wrong THERE\n");
         }
     }
 
     // wait for threads to finish
     for (int i = 0; i < num_mappers; i++) {
         if (pthread_join(mthread[i], NULL) != 0) {
-            printf("something went wrong\n");
+            printf("something went wrong HERE\n");
         }
     }
 
@@ -249,6 +311,7 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
 
     debug_print_interhashmap(interhashmap);
 
+    /*
     // sort each partition
     for (int i = 0; i < interhashmap->capacity; i++) {
         // checks if partition is not empty
@@ -257,26 +320,33 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
                   interhashmap->contents[i]->size, sizeof(MapPair*), cmp);
         }
     }
+    */
 
-    // debug_print_interhashmap(interhashmap);
-    // Reducing Phase
-    // iterate all partitions
+    // start threads for reducing phase (which also sorts)
+    // 1 thread per partition where partition is interhashmap->size
+    printf("Size: %ld\n", interhashmap->size);
+    printf("Capacity: %ld\n", interhashmap->capacity);
+    pthread_t rthread[interhashmap->size];
     for (int i = 0; i < interhashmap->capacity; i++) {
+        // printf("HERE\n");
         ArrayList* partition = interhashmap->contents[i];
+        // if partition is occupied
         if (partition != 0) {
-            // calls Reduce() once for every key
-            // intial Reduce() for first key
-            char* curr_key = partition->pairs[0]->key;
-            (*reduce)(curr_key, get_func,
-                      MR_DefaultHashPartition(curr_key, num_reducers));
-            for (int j = 1; j < partition->size; j++) {
-                // if new key encountered in same partition
-                if (strcmp(partition->pairs[j]->key, curr_key)) {
-                    curr_key = partition->pairs[j]->key;
-                    (*reduce)(curr_key, get_func,
-                              MR_DefaultHashPartition(curr_key, num_reducers));
-                }
+            printf("here at %d\n", i);
+            reducethreadargs = ReduceThreadArgsInit(reduce, i);
+            if (pthread_create(&rthread[i], NULL, &reduce_threads,
+                               &reducethreadargs) != 0) {
+                printf("something went wrongSSSSS\n");
             }
         }
     }
+
+    // wait for threads to finish
+    for (int i = 0; i < interhashmap->size; i++) {
+        if (pthread_join(rthread[i], NULL) != 0) {
+            printf("something went wrong\n");
+        }
+    }
+
+    debug_print_interhashmap(interhashmap);
 }
