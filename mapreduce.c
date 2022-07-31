@@ -1,15 +1,13 @@
 #include "mapreduce.h"
 
 #include <errno.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "hashmap.h"
-
-#define ARRAYLIST_INIT_CAPACITY 1
-#define FNV_OFFSET 14695981039346656037UL
-#define FNV_PRIME 1099511628211UL
 
 // new structs
 typedef struct {
@@ -24,7 +22,17 @@ typedef struct {
     size_t size;
 } InterHashMap;
 
+typedef struct {
+    Mapper map;
+    int curr;
+    int numfiles;
+    char** files;
+} MapThreadArgs;
+
 InterHashMap* interhashmap;
+MapThreadArgs* mapthreadargs;
+sem_t sem;
+pthread_mutex_t mlock;
 
 /**
  * @brief Initializes HashMap
@@ -41,6 +49,21 @@ InterHashMap* InterMapInit(int capacity) {
 }
 
 /**
+ * @brief Initializes MapThreadArgs
+ *
+ * @return MapThreadArgs* Pointer to MapThreadArgs
+ */
+MapThreadArgs* MapThreadArgsInit(Mapper map, char** files, int numfiles) {
+    MapThreadArgs* mtarg = (MapThreadArgs*)malloc(sizeof(MapThreadArgs));
+    mtarg->map = map;
+    mtarg->curr = 0;
+    mtarg->numfiles = numfiles;
+    mtarg->files = files;
+
+    return mtarg;
+}
+
+/**
  * @brief Initializes ArrayList
  *
  * @return ArrayList*
@@ -49,9 +72,8 @@ ArrayList* ArrayListInit(void) {
     ArrayList* arraylist = malloc(sizeof(ArrayList));
     arraylist->size = 0;
     // Allocate the array
-    arraylist->pairs =
-        (MapPair**)calloc(sizeof(MapPair*), ARRAYLIST_INIT_CAPACITY);
-    arraylist->capacity = ARRAYLIST_INIT_CAPACITY;
+    arraylist->pairs = (MapPair**)calloc(sizeof(MapPair*), 1);
+    arraylist->capacity = 1;
     return arraylist;
 }
 
@@ -169,7 +191,27 @@ int cmp(const void* a, const void* b) {
     return strcmp(str1, str2);
 }
 
+void* create_map_threads(void* args) {
+    for (;;) {
+        char* file;
+        pthread_mutex_lock(&mlock);
+        if (mapthreadargs->curr >= mapthreadargs->numfiles) {
+            pthread_mutex_unlock(&mlock);
+            return NULL;
+        }
+        file = mapthreadargs->files[mapthreadargs->curr];
+        mapthreadargs->curr += 1;
+        pthread_mutex_unlock(&mlock);
+        // printf("Map(%s)\n", file);
+        (*mapthreadargs->map)(file);
+    }
+}
+
+// thread
 void MR_Emit(char* key, char* value) {
+    // get partition number
+    // int h = MR_DefaultHashPartition(key, interhashmap->capacity);
+
     InterMapPut(interhashmap, key, value);
     return;
 }
@@ -178,16 +220,33 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
             int num_reducers, Partitioner partition) {
     // intialize interhashmap
     interhashmap = InterMapInit(num_reducers);
-    int i;
-    for (i = 1; i < argc; i++) {
-        // calls MR_Emit() for each word
-        (*map)(argv[i]);
+
+    // start threads for mapping phase
+    if (num_mappers > argc - 1) {
+        num_mappers = argc - 1;
+    }
+    mapthreadargs = MapThreadArgsInit(map, argv + 1, argc - 1);
+    pthread_mutex_init(&mlock, NULL);
+    pthread_t mthread[num_mappers];
+    for (int i = 0; i < num_mappers; i++) {
+        if (pthread_create(&mthread[i], NULL, &create_map_threads, NULL) != 0) {
+            printf("something went wrong\n");
+        }
     }
 
-    // debug_print_interhashmap(interhashmap);
+    // wait for threads to finish
+    for (int i = 0; i < num_mappers; i++) {
+        if (pthread_join(mthread[i], NULL) != 0) {
+            printf("something went wrong\n");
+        }
+    }
+
+    pthread_mutex_destroy(&mlock);
+
+    debug_print_interhashmap(interhashmap);
 
     // sort each partition
-    for (i = 0; i < interhashmap->capacity; i++) {
+    for (int i = 0; i < interhashmap->capacity; i++) {
         // checks if partition is not empty
         if (interhashmap->contents[i] != 0) {
             qsort(interhashmap->contents[i]->pairs,
@@ -201,21 +260,15 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
     for (int i = 0; i < interhashmap->capacity; i++) {
         ArrayList* partition = interhashmap->contents[i];
         if (partition != 0) {
-            // printf("Currently in partition: %d\n", i);
-            // printf("partition size: %ld\n", partition->size);
             // calls Reduce() once for every key
             // intial Reduce() for first key
             char* curr_key = partition->pairs[0]->key;
-            // printf("(1)Running reducer for key: %s\n", curr_key);
             (*reduce)(curr_key, get_func,
                       MR_DefaultHashPartition(curr_key, num_reducers));
             for (int j = 1; j < partition->size; j++) {
                 // if new key encountered in same partition
-                // printf("checking key: %s\n", partition->pairs[j]->key);
-                // printf("against key: %s\n", curr_key);
                 if (strcmp(partition->pairs[j]->key, curr_key)) {
                     curr_key = partition->pairs[j]->key;
-                    // printf("(2)Running reducer for key: %s\n", curr_key);
                     (*reduce)(curr_key, get_func,
                               MR_DefaultHashPartition(curr_key, num_reducers));
                 }
