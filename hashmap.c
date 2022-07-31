@@ -25,6 +25,7 @@ typedef struct {
 pthread_rwlock_t rwlock;
 MapGetThreadArgs* mgtargs;
 MapPutThreadArgs* mptargs;
+HashMap* freq;
 
 /**
  * @brief Initializes MapGetThreaArgs

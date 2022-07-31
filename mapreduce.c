@@ -38,6 +38,7 @@ typedef struct {
 InterHashMap* interhashmap;
 MapThreadArgs* mapthreadargs;
 ReduceThreadArgs* reducethreadargs;
+HashMap* freq;
 pthread_mutex_t mlock;
 
 /**
@@ -248,7 +249,7 @@ void* reduce_threads(void* args) {
     // sorting phase
     // printf("%ld\n", sizeof(curr_partition->pairs));
     // printf("%ld\n", curr_partition->size);
-    qsort(curr_partition->pairs, curr_partition->size, sizeof(MapPair*), cmp);
+    // qsort(curr_partition->pairs, curr_partition->size, sizeof(MapPair*), cmp);
 
     // printf("uhh3\n");
 
@@ -274,6 +275,31 @@ void* reduce_threads(void* args) {
     return NULL;
 }
 
+void populate_freq(HashMap* freq, InterHashMap* interhashmap) {
+    // loop through every partition
+    for (int i = 0; i < interhashmap->capacity; i++) {
+        ArrayList* curr_part = interhashmap->contents[i];
+        // if partition is not empty
+        if (curr_part != 0) {
+            char* curr_key;
+            int count = 1;
+            for(int j = 0; j < curr_part->size - 1; j++) {
+                curr_key = curr_part->pairs[j]->key;
+
+                // if next one is different
+                if (strcmp(curr_key, curr_part->pairs[j]->key)) {
+                    MapPut(freq, curr_key, &count, sizeof(int));
+                    curr_key = curr_part->pairs[j+1]->key;
+                    count = 1;
+                } else {
+                    count++;
+                }
+            }
+            MapPut(freq, curr_key, &count, sizeof(int));
+        }
+    }
+}
+
 // threadify this
 void MR_Emit(char* key, char* value) {
     // get partition number
@@ -291,6 +317,9 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
             int num_reducers, Partitioner partition) {
     // intialize interhashmap
     interhashmap = InterMapInit(num_reducers);
+
+    //initialize freq
+    freq = MapInit();
 
     // start threads for mapping phase
     if (num_mappers > argc - 1) {
@@ -317,7 +346,7 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
 
     debug_print_interhashmap(interhashmap);
 
-    /*
+    
     // sort each partition
     for (int i = 0; i < interhashmap->capacity; i++) {
         // checks if partition is not empty
@@ -326,7 +355,10 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
                   interhashmap->contents[i]->size, sizeof(MapPair*), cmp);
         }
     }
-    */
+
+    populate_freq(freq, interhashmap);
+    printf("FREQ\n");
+    debug_print_hashmap(freq);
 
     // start threads for reducing phase (which also sorts)
     // 1 thread per partition where partition is interhashmap->size
