@@ -14,6 +14,7 @@ typedef struct {
     MapPair** pairs;
     size_t size;
     size_t capacity;
+    sem_t sem;
 } ArrayList;
 
 typedef struct {
@@ -31,7 +32,6 @@ typedef struct {
 
 InterHashMap* interhashmap;
 MapThreadArgs* mapthreadargs;
-sem_t sem;
 pthread_mutex_t mlock;
 
 /**
@@ -74,6 +74,7 @@ ArrayList* ArrayListInit(void) {
     // Allocate the array
     arraylist->pairs = (MapPair**)calloc(sizeof(MapPair*), 1);
     arraylist->capacity = 1;
+    sem_init(&arraylist->sem, 0, 1);
     return arraylist;
 }
 
@@ -117,6 +118,7 @@ void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
 
     // if ArrayList exists
     if (interhashmap->contents[h] != NULL) {
+        sem_wait(&(interhashmap->contents[h]->sem));
         arraylist_add(interhashmap->contents[h], newpair);
     } else {
         // key not found in interhashmap, h is an empty slot
@@ -124,9 +126,11 @@ void InterMapPut(InterHashMap* interhashmap, char* key, char* value) {
         // create new ArrayList*
         ArrayList* new = ArrayListInit();
         interhashmap->contents[h] = new;
+        sem_wait(&(interhashmap->contents[h]->sem));
         arraylist_add(interhashmap->contents[h], newpair);
     }
     interhashmap->size += 1;
+    sem_post(&(interhashmap->contents[h]->sem));
 }
 
 void debug_print_interhashmap(InterHashMap* interhashmap) {
@@ -207,7 +211,7 @@ void* create_map_threads(void* args) {
     }
 }
 
-// thread
+// threadify this
 void MR_Emit(char* key, char* value) {
     // get partition number
     // int h = MR_DefaultHashPartition(key, interhashmap->capacity);
