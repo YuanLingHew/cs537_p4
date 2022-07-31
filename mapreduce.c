@@ -196,14 +196,19 @@ char* get_func(char* key, int partition_number) {
     // printf("getting %s from partition number %d\n", key, partition_number);
     ArrayList* partition = interhashmap->contents[partition_number];
     MapPair* el;
+    int flag = 0;
     if (partition != 0) {
         // iterate to find key in partition
         for (int i = 0; i < partition->size; i++) {
             el = partition->pairs[i];
             if (!strcmp(el->key, key) && el->marked == 0) {
+                flag = 1;
                 // mark element
                 el->marked = 1;
                 return el->value;
+            }
+            if (flag) {
+                break;
             }
         }
     }
