@@ -4,6 +4,14 @@
         "string_view": "c",
         "initializer_list": "c",
         "utility": "c",
-        "numeric": "c"
+        "numeric": "c",
+        "optional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "ratio": "c",
+        "system_error": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c"
     }
 }

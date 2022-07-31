@@ -233,7 +233,6 @@ void* map_threads(void* args) {
 }
 
 void* reduce_threads(void* args) {
-    
     ReduceThreadArgs* arguments = (ReduceThreadArgs*)args;
     // printf("SORTING PARTITION %d\n", arguments->partition_number);
     ArrayList* curr_partition =
@@ -251,7 +250,7 @@ void* reduce_threads(void* args) {
     // reducing phase
     char* curr_key = curr_partition->pairs[0]->key;
     // printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
-           // arguments->partition_number, curr_key);
+    // arguments->partition_number, curr_key);
     (*arguments->reduce)(curr_key, get_func, arguments->partition_number);
 
     for (int j = 1; j < curr_partition->size; j++) {
@@ -259,14 +258,14 @@ void* reduce_threads(void* args) {
         if (strcmp(curr_partition->pairs[j]->key, curr_key)) {
             curr_key = curr_partition->pairs[j]->key;
             // printf("RUNNING REDUCE THREAD FOR PARTITION %d, KEY = %s\n",
-                   // arguments->partition_number, curr_key);
+            // arguments->partition_number, curr_key);
             (*arguments->reduce)(curr_key, get_func,
                                  arguments->partition_number);
         }
     }
     // printf("FINISHED REDUCE THREADS FOR PARTITION %d\n",
-           // arguments->partition_number);
-    // free(arguments);
+    // arguments->partition_number);
+    free(arguments);
     return NULL;
 }
 
@@ -345,13 +344,13 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
         }
     }
 
-    printf("Done creating\n");
+    // printf("Done creating\n");
 
     // wait for threads to finish
     for (int i = 0; i < interhashmap->size; i++) {
         // printf("waiting for rthread[%d]\n", i);
         int rc = pthread_join(rthread[i], NULL);
-        if ( rc != 0) {
+        if (rc != 0) {
             printf("something went wrong at %d\n", i);
             printf("code %d\n", rc);
         }

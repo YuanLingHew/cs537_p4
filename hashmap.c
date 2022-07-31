@@ -1,12 +1,37 @@
 #include "hashmap.h"
 
 #include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define FNV_OFFSET 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
+
+typedef struct {
+    HashMap* hm;
+    char* key;
+    void* result;
+} MapGetThreadArgs;
+
+pthread_rwlock_t rwlock;
+MapGetThreadArgs* mgtargs;
+
+/**
+ * @brief Initializes MapGetThreaArgs
+ *
+ * @return MapGetThreadArgs* Pointer to HashMap
+ */
+MapGetThreadArgs* MapGetThreadArgsInit(HashMap* hm, char* key) {
+    MapGetThreadArgs* mgtargs =
+        (MapGetThreadArgs*)malloc(sizeof(MapGetThreadArgs));
+    mgtargs->hm = hm;
+    mgtargs->key = key;
+    mgtargs->result = NULL;
+
+    return mgtargs;
+}
 
 /**
  * @brief Initializes HasMap
@@ -65,6 +90,28 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
     hashmap->size += 1;
 }
 
+void* mapget_thread(void* args) {
+    MapGetThreadArgs* arguments = (MapGetThreadArgs*)args;
+    HashMap* hashmap = arguments->hm;
+    char* key = arguments->key;
+
+    pthread_rwlock_rdlock(&rwlock);
+    int h = Hash(key, hashmap->capacity);
+    while (hashmap->contents[h] != NULL) {
+        if (!strcmp(key, hashmap->contents[h]->key)) {
+            pthread_rwlock_unlock(&rwlock);
+            arguments->result = hashmap->contents[h]->value;
+            break;
+        }
+        h++;
+        if (h == hashmap->capacity) {
+            h = 0;
+        }
+    }
+    pthread_rwlock_unlock(&rwlock);
+    pthread_exit(NULL);
+}
+
 /**
  * @brief Get value of key value pair
  *
@@ -73,17 +120,21 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
  * @return char* to value, NULL if not found
  */
 char* MapGet(HashMap* hashmap, char* key) {
-    int h = Hash(key, hashmap->capacity);
-    while (hashmap->contents[h] != NULL) {
-        if (!strcmp(key, hashmap->contents[h]->key)) {
-            return hashmap->contents[h]->value;
-        }
-        h++;
-        if (h == hashmap->capacity) {
-            h = 0;
-        }
+    char* result;
+    pthread_t gthread;
+    mgtargs = MapGetThreadArgsInit(hashmap, key);
+
+    if (pthread_create(&gthread, NULL, &mapget_thread, (void*)mgtargs) != 0) {
+        printf("something went wrong THERE\n");
     }
-    return NULL;
+
+    if (pthread_join(gthread, NULL) != 0) {
+        printf("something went wrong HERE\n");
+    }
+
+    result = (char*)mgtargs->result;
+    free(mgtargs);
+    return result;
 }
 
 /**
