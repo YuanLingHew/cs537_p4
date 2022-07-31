@@ -15,8 +15,16 @@ typedef struct {
     void* result;
 } MapGetThreadArgs;
 
+typedef struct {
+    HashMap* hm;
+    char* key;
+    void* value;
+    int value_size;
+} MapPutThreadArgs;
+
 pthread_rwlock_t rwlock;
 MapGetThreadArgs* mgtargs;
+MapPutThreadArgs* mptargs;
 
 /**
  * @brief Initializes MapGetThreaArgs
@@ -24,13 +32,30 @@ MapGetThreadArgs* mgtargs;
  * @return MapGetThreadArgs* Pointer to HashMap
  */
 MapGetThreadArgs* MapGetThreadArgsInit(HashMap* hm, char* key) {
-    MapGetThreadArgs* mgtargs =
+    MapGetThreadArgs* args =
         (MapGetThreadArgs*)malloc(sizeof(MapGetThreadArgs));
-    mgtargs->hm = hm;
-    mgtargs->key = key;
-    mgtargs->result = NULL;
+    args->hm = hm;
+    args->key = key;
+    args->result = NULL;
 
-    return mgtargs;
+    return args;
+}
+
+/**
+ * @brief Initializes MapPutThreaArgs
+ *
+ * @return MapPutThreadArgs* Pointer to HashMap
+ */
+MapPutThreadArgs* MapPutThreadArgsInit(HashMap* hm, char* key, void* value,
+                                       int value_size) {
+    MapPutThreadArgs* args =
+        (MapPutThreadArgs*)malloc(sizeof(MapPutThreadArgs));
+    args->hm = hm;
+    args->key = key;
+    args->value = value;
+    args->value_size = value_size;
+
+    return args;
 }
 
 /**
@@ -46,18 +71,18 @@ HashMap* MapInit(void) {
     return hashmap;
 }
 
-/**
- * @brief Inserts key value pair in hashmap
- *
- * @param hashmap Pointer to hashmap
- * @param key Char pointer to key
- * @param value Void pointer to value
- * @param value_size int value of size of HashMap
- */
-void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
+void* mapput_thread(void* args) {
+    MapPutThreadArgs* arguments = (MapPutThreadArgs*)args;
+    HashMap* hashmap = arguments->hm;
+    char* key = arguments->key;
+    void* value = arguments->value;
+    int value_size = arguments->value_size;
+
+    pthread_rwlock_wrlock(&rwlock);
     // resize hashmap if half filled
     if (hashmap->size > (hashmap->capacity / 2)) {
         if (resize_map(hashmap) < 0) {
+            pthread_rwlock_unlock(&rwlock);
             exit(0);
         }
     }
@@ -78,7 +103,8 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
         if (!strcmp(key, hashmap->contents[h]->key)) {
             free(hashmap->contents[h]);
             hashmap->contents[h] = newpair;
-            return;
+            pthread_rwlock_unlock(&rwlock);
+            break;
         }
         h++;
         if (h == hashmap->capacity) h = 0;
@@ -88,6 +114,31 @@ void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
     // add pair to hashmap
     hashmap->contents[h] = newpair;
     hashmap->size += 1;
+    pthread_rwlock_unlock(&rwlock);
+    pthread_exit(NULL);
+}
+
+/**
+ * @brief Inserts key value pair in hashmap
+ *
+ * @param hashmap Pointer to hashmap
+ * @param key Char pointer to key
+ * @param value Void pointer to value
+ * @param value_size int value of size of HashMap
+ */
+void MapPut(HashMap* hashmap, char* key, void* value, int value_size) {
+    pthread_t putthread;
+    mptargs = MapPutThreadArgsInit(hashmap, key, value, value_size);
+
+    if (pthread_create(&putthread, NULL, &mapput_thread, (void*)mptargs) != 0) {
+        printf("something went wrong THERE\n");
+    }
+
+    if (pthread_join(putthread, NULL) != 0) {
+        printf("something went wrong HERE\n");
+    }
+
+    // free(mptargs);
 }
 
 void* mapget_thread(void* args) {
@@ -133,7 +184,7 @@ char* MapGet(HashMap* hashmap, char* key) {
     }
 
     result = (char*)mgtargs->result;
-    free(mgtargs);
+    // free(mgtargs);
     return result;
 }
 
