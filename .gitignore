@@ -1,0 +1,11 @@
+*
+
+!.gitignore
+!basic.txt
+!hashmap.c
+!hashmap.h
+!main.c
+!mapreduce
+!mapreduce.c
+!mapreduce.h
+!sequential_mapreduce.c
