@@ -287,7 +287,7 @@ void populate_freq(HashMap* freq, InterHashMap* interhashmap) {
                 curr_key = curr_part->pairs[j]->key;
 
                 // if next one is different
-                if (strcmp(curr_key, curr_part->pairs[j]->key)) {
+                if (strcmp(curr_key, curr_part->pairs[j+1]->key)) {
                     MapPut(freq, curr_key, &count, sizeof(int));
                     curr_key = curr_part->pairs[j+1]->key;
                     count = 1;
