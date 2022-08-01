@@ -195,6 +195,39 @@ unsigned long MR_DefaultHashPartition(char* key, int num_partitions) {
 char* get_func(char* key, int partition_number) {
     // printf("get_func key(%s, %d)\n", key, partition_number);
     // printf("getting %s from partition number %d\n", key, partition_number);
+
+    // check if frequency > 0
+    // printf("Searching for %s\n", key);
+    // char* f = MapGet(freq, key);
+    // printf("f = %s\n", f);
+    // int newval;
+    // char newval_c;
+    // char temp = '1';
+    // char* temp_p = &temp;
+
+    /*
+    if (*(f) > '0') {
+        newval = atoi(f) - 1;
+        newval_c = newval + '0';
+        MapPut(freq, key, &newval_c, sizeof(char));
+        return temp_p;
+    }
+    return NULL;
+    */
+    // printf("HJERE\n");
+    void* f = MapGet(freq, key);
+    int newval;
+    char temp = '1';
+    char* temp_p = &temp;
+
+    if (*(int*)f > 0) {
+        newval = *(int*)f - 1; 
+        MapPut(freq, key, &newval, sizeof(int));
+        return temp_p;
+    }
+    return NULL;
+
+    /*
     ArrayList* partition = interhashmap->contents[partition_number];
     MapPair* el;
     int flag = 0;
@@ -214,6 +247,7 @@ char* get_func(char* key, int partition_number) {
         }
     }
     return NULL;
+    */
 }
 
 int cmp(const void* a, const void* b) {
@@ -283,11 +317,14 @@ void populate_freq(HashMap* freq, InterHashMap* interhashmap) {
         if (curr_part != 0) {
             char* curr_key;
             int count = 1;
+            // char count_c;
             for(int j = 0; j < curr_part->size - 1; j++) {
                 curr_key = curr_part->pairs[j]->key;
 
                 // if next one is different
                 if (strcmp(curr_key, curr_part->pairs[j+1]->key)) {
+                    // count_c = count + '0';
+                    // printf("putting: %c\n", count_c);
                     MapPut(freq, curr_key, &count, sizeof(int));
                     curr_key = curr_part->pairs[j+1]->key;
                     count = 1;
@@ -295,6 +332,8 @@ void populate_freq(HashMap* freq, InterHashMap* interhashmap) {
                     count++;
                 }
             }
+            // count_c = count + '0';
+            // printf("putting: %c\n", count_c);
             MapPut(freq, curr_key, &count, sizeof(int));
         }
     }
@@ -336,7 +375,7 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
 
     // wait for threads to finish
     for (int i = 0; i < num_mappers; i++) {
-        printf("waiting for mthread[%d]\n", i);
+        // printf("waiting for mthread[%d]\n", i);
         if (pthread_join(mthread[i], NULL) != 0) {
             printf("something went wrong HERE\n");
         }
@@ -344,9 +383,6 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
 
     pthread_mutex_destroy(&mlock);
 
-    debug_print_interhashmap(interhashmap);
-
-    
     // sort each partition
     for (int i = 0; i < interhashmap->capacity; i++) {
         // checks if partition is not empty
@@ -356,14 +392,16 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
         }
     }
 
+    // debug_print_interhashmap(interhashmap);
+
     populate_freq(freq, interhashmap);
-    printf("FREQ\n");
-    debug_print_hashmap(freq);
+    // printf("FREQ\n");
+    // debug_print_hashmap(freq);
 
     // start threads for reducing phase (which also sorts)
     // 1 thread per partition where partition is interhashmap->size
-    printf("Size: %ld\n", interhashmap->size);
-    printf("Capacity: %ld\n", interhashmap->capacity);
+    // printf("Size: %ld\n", interhashmap->size);
+    // printf("Capacity: %ld\n", interhashmap->capacity);
     pthread_t rthread[interhashmap->size];
     int j = 0;
     for (int i = 0; i < interhashmap->capacity; i++) {
@@ -393,5 +431,5 @@ void MR_Run(int argc, char* argv[], Mapper map, int num_mappers, Reducer reduce,
         }
     }
 
-    debug_print_interhashmap(interhashmap);
+    // debug_print_interhashmap(interhashmap);
 }

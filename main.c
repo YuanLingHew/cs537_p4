@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
     argc -= 1;
 
     // run mapreduce
-    MR_Run(argc, argv, Map, 10, Reduce, 10, MR_DefaultHashPartition);
+    MR_Run(argc, argv, Map, 1, Reduce, 1, MR_DefaultHashPartition);
     // get the number of occurrences and print
-    debug_print_hashmap(hashmap);
+    // debug_print_hashmap(hashmap);
     char *result;
     if ((result = MapGet(hashmap, searchterm)) != NULL) {
         printf("Found %s %d times\n", searchterm, *(int *)result);

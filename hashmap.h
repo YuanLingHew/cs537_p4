@@ -19,7 +19,7 @@ typedef struct {
 // External Functions
 HashMap* MapInit(void);
 void MapPut(HashMap* map, char* key, void* value, int value_size);
-char* MapGet(HashMap* map, char* key);
+void* MapGet(HashMap* map, char* key);
 size_t MapSize(HashMap* map);
 
 // Internal Functions
